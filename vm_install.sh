@@ -49,7 +49,7 @@ IP_METHOD=$(whiptail --title "IPv4 CONFIGURATION" --menu "Select IPv4 Address As
 if [ $? != 0 ]; then exit 1; fi
 
 if [ "$IP_METHOD" = "static" ]; then
-    IPV4_STATIC=$(whiptail --title "STATIC IPv4 ADDRESS" --inputbox "Enter Static IPv4 CIDR Address\n(e.g. 192.168.0.110/21)" 10 58 "" 3>&1 1>&2 2>&3)
+    IPV4_STATIC=$(whiptail --title "STATIC IPv4 ADDRESS" --inputbox "Enter Static IPv4 CIDR Address\n(e.g. 192.168.0.110/24)" 10 58 "" 3>&1 1>&2 2>&3)
     if [ $? != 0 ] || [ -z "$IPV4_STATIC" ]; then exit 1; fi
 
     GW_ADDR=$(whiptail --title "GATEWAY IP" --inputbox "Enter Gateway IP address\n(e.g. 192.168.0.2)" 10 58 "" 3>&1 1>&2 2>&3)
