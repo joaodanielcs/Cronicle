@@ -133,7 +133,6 @@ C_RESET="\e[0m"
 # 4. TELA DE RESUMO (VISUAL TTECK)
 # ==========================================================
 clear
-printf "${C_GREEN_BOLD}✔ Using Advanced Install on node %s${C_RESET}\n\n" "$(hostname)"
 printf " 💡 PVE Version: ${C_GREEN_BOLD}%s${C_RESET}\n" "$(pveversion | cut -d' ' -f1)"
 printf " 🖥️  Operating System: ${C_GREEN_BOLD}Debian 13${C_RESET}\n"
 printf " 📦 Type: ${C_GREEN_BOLD}Virtual Machine (QEMU)${C_RESET}\n"
