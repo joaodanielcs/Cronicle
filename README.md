@@ -40,7 +40,7 @@ Para garantir que o Cronicle-Edge Master rode com fluidez e tenha espaço para a
 Para instalar o Cronicle-Edge Master, acesse o **Shell** do seu nó Proxmox e execute o comando abaixo em uma única linha:
 
 ```bash
-bash -c "$(wget -qLO - [https://raw.githubusercontent.com/joaodanielcs/Cronicle/refs/heads/main/vm_install.sh](https://raw.githubusercontent.com/joaodanielcs/Cronicle/refs/heads/main/vm_install.sh))"
+bash -c "$(wget -qLO - https://raw.githubusercontent.com/joaodanielcs/Cronicle/refs/heads/main/vm_install.sh)"
 ```
 
 ## 🔑 Acesso Pós-Instalação
