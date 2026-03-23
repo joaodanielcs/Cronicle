@@ -104,26 +104,26 @@ else
     IP_DISP="$IPV4_STATIC"
 fi
 
-# Permitir SSH com root
+# Permitir SSH com root (Tratado como script Bash nativo)
 if [ "$SSH_ENABLE" = "true" ]; then
-    CMD_SSH1="- sh -c 'echo \"PermitRootLogin yes\" > /etc/ssh/sshd_config.d/99-root.conf'"
-    CMD_SSH2="- sh -c 'echo \"PasswordAuthentication yes\" >> /etc/ssh/sshd_config.d/99-root.conf'"
-    CMD_SSH3="- systemctl restart ssh"
+    CMD_SSH1="echo \"PermitRootLogin yes\" > /etc/ssh/sshd_config.d/99-root.conf"
+    CMD_SSH2="echo \"PasswordAuthentication yes\" >> /etc/ssh/sshd_config.d/99-root.conf"
+    CMD_SSH3="systemctl restart ssh"
 else
     CMD_SSH1="# SSH desativado"
     CMD_SSH2="# SSH desativado"
     CMD_SSH3="# SSH desativado"
 fi
 
-# Desativar IPv6
+# Desativar IPv6 (Tratado como script Bash nativo)
 if [ "$DISABLE_IPV6" = "disable" ]; then
-    CMD_IPV6_GRUB="- sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT=\"/GRUB_CMDLINE_LINUX_DEFAULT=\"ipv6.disable=1 quiet loglevel=3 /' /etc/default/grub"
-    CMD_IPV6_SYS1="- sh -c 'echo \"net.ipv6.conf.all.disable_ipv6 = 1\" > /etc/sysctl.d/99-disable-ipv6.conf'"
-    CMD_IPV6_SYS2="- sh -c 'echo \"net.ipv6.conf.default.disable_ipv6 = 1\" >> /etc/sysctl.d/99-disable-ipv6.conf'"
-    CMD_IPV6_SYS3="- sh -c 'echo \"net.ipv6.conf.lo.disable_ipv6 = 1\" >> /etc/sysctl.d/99-disable-ipv6.conf'"
-    CMD_IPV6_SYS4="- sysctl --system"
+    CMD_IPV6_GRUB="sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT=\"/GRUB_CMDLINE_LINUX_DEFAULT=\"ipv6.disable=1 quiet loglevel=3 /' /etc/default/grub"
+    CMD_IPV6_SYS1="echo \"net.ipv6.conf.all.disable_ipv6 = 1\" > /etc/sysctl.d/99-disable-ipv6.conf"
+    CMD_IPV6_SYS2="echo \"net.ipv6.conf.default.disable_ipv6 = 1\" >> /etc/sysctl.d/99-disable-ipv6.conf"
+    CMD_IPV6_SYS3="echo \"net.ipv6.conf.lo.disable_ipv6 = 1\" >> /etc/sysctl.d/99-disable-ipv6.conf"
+    CMD_IPV6_SYS4="sysctl --system"
 else
-    CMD_IPV6_GRUB="- sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT=\"/GRUB_CMDLINE_LINUX_DEFAULT=\"quiet loglevel=3 /' /etc/default/grub"
+    CMD_IPV6_GRUB="sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT=\"/GRUB_CMDLINE_LINUX_DEFAULT=\"quiet loglevel=3 /' /etc/default/grub"
     CMD_IPV6_SYS1="# IPv6 Mantido"
     CMD_IPV6_SYS2="# IPv6 Mantido"
     CMD_IPV6_SYS3="# IPv6 Mantido"
@@ -149,7 +149,7 @@ C_RESET="\e[0m"
 # Exibição
 clear
 printf " %s  %-15s ${C_GREEN_BOLD}%s${C_RESET}\n" "💡" "PVE Version:" "$(pveversion | cut -d' ' -f1)"
-printf " %s  %-15s ${C_GREEN_BOLD}%s${C_RESET}\n" "🖥️" "O.S.:" "Debian 13"
+printf " %s  %-15s ${C_GREEN_BOLD}%s${C_RESET}\n" "🖥️" "O.S.:" "Debian 13 (Q35 + UEFI)"
 printf " %s  %-15s ${C_GREEN_BOLD}%s${C_RESET}\n" "📦" "Type:" "Virtual Machine (QEMU)"
 printf " %s  %-15s ${C_GREEN_BOLD}%s${C_RESET}\n" "🆔" "VM ID:" "$VM_ID"
 printf " %s  %-15s ${C_GREEN_BOLD}%s${C_RESET}\n" "🏠" "Hostname:" "$VM_NAME"
@@ -173,9 +173,15 @@ if [ ! -f "$IMAGE_FILE" ]; then wget -q --show-progress -O "$IMAGE_FILE" "$IMAGE
 
 qm create "$VM_ID" --name "$VM_NAME" --memory "$VM_MEM" --cores "$VM_CORES" --net0 "$NET_STR" > /dev/null 2>&1
 qm importdisk "$VM_ID" "$IMAGE_FILE" "$STORAGE_NAME" > /dev/null 2>&1
-qm set "$VM_ID" --scsihw virtio-scsi-single \
-                --scsi0 "$STORAGE_NAME:vm-$VM_ID-disk-0,iothread=1,discard=on" \
-                --boot c --bootdisk scsi0 --tablet 0 --agent enabled=1 --cpu host --onboot 1 --ostype l26 > /dev/null 2>&1
+
+# Nova Configuração: Q35, UEFI (OVMF) e EFI Disk
+qm set "$VM_ID" \
+    --machine q35 \
+    --bios ovmf \
+    --efidisk0 "$STORAGE_NAME:0,efitype=4m,pre-enrolled-keys=1" \
+    --scsihw virtio-scsi-single \
+    --scsi0 "$STORAGE_NAME:vm-$VM_ID-disk-0,iothread=1,discard=on" \
+    --boot c --bootdisk scsi0 --tablet 0 --agent enabled=1 --cpu host --onboot 1 --ostype l26 > /dev/null 2>&1
 
 qm set "$VM_ID" --ipconfig0 "$IP_CONF" > /dev/null 2>&1
 if [ -n "$DNS_ADDR" ]; then qm set "$VM_ID" --nameserver "$DNS_ADDR" > /dev/null 2>&1; fi
@@ -212,6 +218,19 @@ packages:
   - npm
 
 write_files:
+  - path: /root/configure_os.sh
+    permissions: '0755'
+    content: |
+      #!/bin/bash
+      $CMD_IPV6_GRUB
+      $CMD_IPV6_SYS1
+      $CMD_IPV6_SYS2
+      $CMD_IPV6_SYS3
+      $CMD_IPV6_SYS4
+      update-grub
+      $CMD_SSH1
+      $CMD_SSH2
+      $CMD_SSH3
   - path: /root/install_cronicle.sh
     permissions: '0755'
     content: |
@@ -239,15 +258,7 @@ runcmd:
   - systemctl enable qemu-guest-agent
   - systemctl start qemu-guest-agent
   - usermod -U root
-  $CMD_IPV6_GRUB
-  $CMD_IPV6_SYS1
-  $CMD_IPV6_SYS2
-  $CMD_IPV6_SYS3
-  $CMD_IPV6_SYS4
-  - update-grub
-  $CMD_SSH1
-  $CMD_SSH2
-  $CMD_SSH3
+  - /root/configure_os.sh
   - /root/install_cronicle.sh
 EOF
 
@@ -287,7 +298,7 @@ while true; do
 done
 
 # ==========================================================
-# 7. CONCLUSÃO
+# 7. CONCLUSÃO E LIMPEZA (HA READY)
 # ==========================================================
 
 qm set "$VM_ID" --delete cicustom > /dev/null 2>&1
