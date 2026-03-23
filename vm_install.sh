@@ -235,33 +235,33 @@ write_files:
       $CMD_SSH2
       $CMD_SSH3
   - path: /root/install_cronicle.sh
-      permissions: '0755'
-      content: |
-        #!/bin/bash
-        export HOME=/root
-        exec > /var/log/cronicle_install.log 2>&1
-        set -x
-        git clone https://github.com/cronicle-edge/cronicle-edge.git /tmp/cronicle-edge
-        cd /tmp/cronicle-edge
-        ./bundle $CRONICLE_DIR
-        cd $CRONICLE_DIR
+    permissions: '0755'
+    content: |
+      #!/bin/bash
+      export HOME=/root
+      exec > /var/log/cronicle_install.log 2>&1
+      set -x
+      git clone https://github.com/cronicle-edge/cronicle-edge.git /tmp/cronicle-edge
+      cd /tmp/cronicle-edge
+      ./bundle $CRONICLE_DIR
+      cd $CRONICLE_DIR
       
-        # Injeta as variáveis diretamente no setup.json usando sed
-        sed -i "s|http://localhost:3012|$CRONICLE_URL|g" conf/setup.json
-        sed -i "s|admin@cronicle.com|$CLEAN_DOMAIN_FOR_EMAIL|g" conf/setup.json
-        sed -i "s|corp.cronicle.com|$DOMAIN_SRCH|g" conf/setup.json
+      # Injeta as variaveis diretamente no setup.json usando sed
+      sed -i "s|http://localhost:3012|$CRONICLE_URL|g" conf/setup.json
+      sed -i "s|admin@cronicle.com|$CLEAN_DOMAIN_FOR_EMAIL|g" conf/setup.json
+      sed -i "s|corp.cronicle.com|$DOMAIN_SRCH|g" conf/setup.json
       
-        if [ -f "bin/control.sh" ]; then
-            ./bin/control.sh setup
-        fi
+      if [ -f "bin/control.sh" ]; then
+          ./bin/control.sh setup
+      fi
       
-        # O config.json ainda precisa do jq pois modifica portas estruturais
-        jq '.WebServer.http_port = 80 | .base_app_url = "$CRONICLE_URL"' conf/config.json > conf/config.json.tmp
-        mv conf/config.json.tmp conf/config.json
-        ./bin/control.sh start
-        echo "$CRONICLE_DIR/bin/control.sh start" >> /etc/rc.local
-        chmod +x /etc/rc.local
-      
+      # O config.json ainda precisa do jq pois modifica portas estruturais
+      jq '.WebServer.http_port = 80 | .base_app_url = "$CRONICLE_URL"' conf/config.json > conf/config.json.tmp
+      mv conf/config.json.tmp conf/config.json
+      ./bin/control.sh start
+      echo "$CRONICLE_DIR/bin/control.sh start" >> /etc/rc.local
+      chmod +x /etc/rc.local
+
 runcmd:
   - sh -c 'echo "kernel.printk = 3 4 1 3" > /etc/sysctl.d/20-quiet.conf'
   - sysctl -p /etc/sysctl.d/20-quiet.conf
