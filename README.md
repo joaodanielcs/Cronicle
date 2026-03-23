@@ -45,10 +45,10 @@ bash -c "$(wget -qLO - [https://raw.githubusercontent.com/joaodanielcs/Cronicle/
 
 ## 🔑 Acesso Pós-Instalação
 
-Assim que o instalador concluir o processo com a mensagem verde de sucesso:
+Assim que o instalador concluir:
 
 1. Acesse a **Base URL** ou o **IP** que você configurou no seu navegador (ex: `http://cronicle.seudominio.com.br`).
-2. Na tela inicial, faça o login utilizando as credenciais padrão do sistema:
+2. Na tela inicial, faça o login utilizando a credencial padrão do sistema:
 
 > 👤 **Usuário:** `admin`  
 > 🔑 **Senha:** `admin`
