@@ -19,8 +19,19 @@ if [ $? != 0 ] || [ -z "$VM_ID" ]; then exit 1; fi
 VM_NAME=$(whiptail --title "HOSTNAME" --inputbox "Set Hostname (or FQDN, e.g. host.example.com)" 10 58 "srvCronicle" 3>&1 1>&2 2>&3)
 if [ $? != 0 ] || [ -z "$VM_NAME" ]; then exit 1; fi
 
-ROOT_PASS=$(whiptail --title "ROOT PASSWORD" --passwordbox "Set Root Password (needed for root ssh access)" 10 58 3>&1 1>&2 2>&3)
-if [ $? != 0 ] || [ -z "$ROOT_PASS" ]; then exit 1; fi
+while true; do
+    ROOT_PASS=$(whiptail --title "ROOT PASSWORD" --passwordbox "Set Root Password (needed for root ssh access)" 10 58 3>&1 1>&2 2>&3)
+    if [ $? != 0 ] || [ -z "$ROOT_PASS" ]; then exit 1; fi
+
+    ROOT_PASS_CONFIRM=$(whiptail --title "ROOT PASSWORD CONFIRMATION" --passwordbox "Please confirm your Root Password" 10 58 3>&1 1>&2 2>&3)
+    if [ $? != 0 ] || [ -z "$ROOT_PASS_CONFIRM" ]; then exit 1; fi
+
+    if [ "$ROOT_PASS" == "$ROOT_PASS_CONFIRM" ]; then
+        break # As senhas coincidem, sai do loop
+    else
+        whiptail --title "ERROR" --msgbox "As senhas não coincidem. Por favor, tente novamente." 8 45
+    fi
+done
 
 VM_CORES=$(whiptail --title "CPU CORES" --inputbox "Allocate CPU Cores" 10 58 "2" 3>&1 1>&2 2>&3)
 if [ $? != 0 ] || [ -z "$VM_CORES" ]; then exit 1; fi
