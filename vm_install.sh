@@ -27,7 +27,7 @@ while true; do
     if [ $? != 0 ] || [ -z "$ROOT_PASS_CONFIRM" ]; then exit 1; fi
 
     if [ "$ROOT_PASS" == "$ROOT_PASS_CONFIRM" ]; then
-        break # As senhas coincidem, sai do loop
+        break 
     else
         whiptail --title "ERROR" --msgbox "As senhas não coincidem. Por favor, tente novamente." 8 45
     fi
@@ -63,35 +63,36 @@ if [ "$IP_METHOD" = "static" ]; then
     IPV4_STATIC=$(whiptail --title "STATIC IPv4 ADDRESS" --inputbox "Enter Static IPv4 CIDR Address\n(e.g. 192.168.0.110/24)" 10 58 "" 3>&1 1>&2 2>&3)
     if [ $? != 0 ] || [ -z "$IPV4_STATIC" ]; then exit 1; fi
 
-    GW_ADDR=$(whiptail --title "GATEWAY IP" --inputbox "Enter Gateway IP address\n(e.g. 192.168.0.2)" 10 58 "" 3>&1 1>&2 2>&3)
+    GW_ADDR=$(whiptail --title "GATEWAY IP" --inputbox "Enter Gateway IP address\n(e.g. 192.168.0.1)" 10 58 "" 3>&1 1>&2 2>&3)
     if [ $? != 0 ] || [ -z "$GW_ADDR" ]; then exit 1; fi
 fi
-
-DOMAIN_SRCH=$(whiptail --title "DNS SEARCH DOMAIN" --inputbox "Set DNS Search Domain\n(leave blank to use host setting)" 10 58 "" 3>&1 1>&2 2>&3)
-if [ $? != 0 ]; then exit 1; fi
 
 DNS_ADDR=$(whiptail --title "DNS SERVER" --inputbox "Set DNS Server IP\n(leave blank to use host setting)" 10 58 "" 3>&1 1>&2 2>&3)
 if [ $? != 0 ]; then exit 1; fi
 
-DISABLE_IPV6=$(whiptail --title "IPv6 CONFIGURATION" --menu "Select IPv6 Address Management:" 15 65 3 "auto" "SLAAC/AUTO (recommended)" "disable" "Fully Disabled" 3>&1 1>&2 2>&3)
+DOMAIN_SRCH=$(whiptail --title "DNS SEARCH DOMAIN" --inputbox "Set DNS Search Domain\n(leave blank to use host setting)" 10 58 "" 3>&1 1>&2 2>&3)
+if [ $? != 0 ]; then exit 1; fi
+
+CRONICLE_URL=$(whiptail --title "CRONICLE BASE URL" --inputbox "Set the Base URL for the Cronicle Web UI" 10 58 "http://cronicle.local" 3>&1 1>&2 2>&3)
+if [ $? != 0 ] || [ -z "$CRONICLE_URL" ]; then exit 1; fi
+
+DISABLE_IPV6=$(whiptail --title "IPv6 CONFIGURATION" --menu "Select IPv6 Address Management:" 15 65 3 "auto" " - SLAAC/AUTO" "disable" " - Fully Disabled (recommended)" 3>&1 1>&2 2>&3)
 if [ $? != 0 ]; then exit 1; fi
 
 TZ_SET=$(whiptail --title "CONTAINER TIMEZONE" --inputbox "Set VM timezone.\nLeave empty to inherit from host." 10 58 "America/Sao_Paulo" 3>&1 1>&2 2>&3)
 if [ $? != 0 ]; then exit 1; fi
 
 whiptail --title "SSH ACCESS" --yesno "Enable root SSH access?" 10 58
-# CORREÇÃO 1: YAML booleans precisam ser "true" ou "false"
 if [ $? -eq 0 ]; then SSH_ENABLE="true"; else SSH_ENABLE="false"; fi
-
-CRONICLE_URL=$(whiptail --title "CRONICLE BASE URL" --inputbox "Set the Base URL for the Cronicle Web UI" 10 58 "http://cronicle.local" 3>&1 1>&2 2>&3)
-if [ $? != 0 ] || [ -z "$CRONICLE_URL" ]; then exit 1; fi
 
 # ==========================================================
 # 3. PREPARAÇÃO DOS DADOS E TRATAMENTO DE VARIÁVEIS YAML
 # ==========================================================
 
+# Senha de root 
 HASH_PASS=$(openssl passwd -6 "$ROOT_PASS")
 
+# IPv4 
 NET_STR="virtio,bridge=$BRIDGE_NET"
 if [ -n "$MTU_SIZE" ]; then NET_STR="$NET_STR,mtu=$MTU_SIZE"; fi
 
@@ -103,7 +104,7 @@ else
     IP_DISP="$IPV4_STATIC"
 fi
 
-# CORREÇÃO 2: Força o SSH criando arquivo definitivo na pasta .d
+# Permitir SSH com root
 if [ "$SSH_ENABLE" = "true" ]; then
     CMD_SSH1="- sh -c 'echo \"PermitRootLogin yes\" > /etc/ssh/sshd_config.d/99-root.conf'"
     CMD_SSH2="- sh -c 'echo \"PasswordAuthentication yes\" >> /etc/ssh/sshd_config.d/99-root.conf'"
@@ -114,7 +115,7 @@ else
     CMD_SSH3="# SSH desativado"
 fi
 
-# CORREÇÃO 3: Nomes de arquivos de sysctl corrigidos para não se sobrescreverem
+# Desativar IPv6
 if [ "$DISABLE_IPV6" = "disable" ]; then
     CMD_IPV6_GRUB="- sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT=\"/GRUB_CMDLINE_LINUX_DEFAULT=\"ipv6.disable=1 quiet loglevel=3 /' /etc/default/grub"
     CMD_IPV6_SYS1="- sh -c 'echo \"net.ipv6.conf.all.disable_ipv6 = 1\" > /etc/sysctl.d/99-disable-ipv6.conf'"
@@ -129,10 +130,15 @@ else
     CMD_IPV6_SYS4="# IPv6 Mantido"
 fi
 
+# Imagem Debian 13
 CRONICLE_DIR="/opt/cronicle"
 IMAGE_URL="https://cloud.debian.org/images/cloud/trixie/latest/debian-13-generic-amd64.qcow2"
 IMAGE_FILE="debian-13-generic-amd64.qcow2"
 
+# ==========================================================
+# 4. TELA DE RESUMO
+# ==========================================================
+# Variáveis
 C_GREEN_BOLD="\e[1;32m"
 C_BLUE_BOLD="\e[1;34m"
 C_YELLOW_BOLD="\e[1;33m"
@@ -140,28 +146,8 @@ C_BLUE_BOLD_UNDER="\e[1;34;4m"
 C_WHITE_BOLD="\e[1;37m"
 C_RESET="\e[0m"
 
-# ==========================================================
-# 4. TELA DE RESUMO (VISUAL TTECK)
-# ==========================================================
+# Exibição
 clear
-#printf " 💡   PVE Version:  ${C_GREEN_BOLD}%s${C_RESET}\n" "$(pveversion | cut -d' ' -f1)"
-#printf " 🖥️  O.S.:         ${C_GREEN_BOLD}Debian 13${C_RESET}\n"
-#printf " 📦  Type:         ${C_GREEN_BOLD}Virtual Machine (QEMU)${C_RESET}\n"
-#printf " 🆔  VM ID:        ${C_GREEN_BOLD}%s${C_RESET}\n" "$VM_ID"
-#printf " 🏠  Hostname:     ${C_GREEN_BOLD}%s${C_RESET}\n" "$VM_NAME"
-#printf " 💾  Disk Size:    ${C_GREEN_BOLD}%s GB${C_RESET}\n" "$DISK_SIZE"
-#printf " 🧠  CPU Cores:    ${C_GREEN_BOLD}%s${C_RESET}\n" "$VM_CORES"
-#printf " 🛠️  RAM Size:     ${C_GREEN_BOLD}%s MiB${C_RESET}\n" "$VM_MEM"
-#printf " 🌉  Bridge:       ${C_GREEN_BOLD}%s${C_RESET}\n" "$BRIDGE_NET"
-#printf " 📡  IPv4:         ${C_GREEN_BOLD}%s${C_RESET}\n" "$IP_DISP"
-#printf " 📡  IPv6:         ${C_GREEN_BOLD}%s${C_RESET}\n" "$DISABLE_IPV6"
-#printf " 🌍  DNS Domain:   ${C_GREEN_BOLD}%s${C_RESET}\n" "${DOMAIN_SRCH:-Host Default}"
-#printf " 🌍  DNS Server:   ${C_GREEN_BOLD}%s${C_RESET}\n" "${DNS_ADDR:-Host Default}"
-#printf " 💡  Timezone:      ${C_GREEN_BOLD}%s${C_RESET}\n" "${TZ_SET:-Host Default}"
-#printf " 🌐  Base URL:     ${C_GREEN_BOLD}%s${C_RESET}\n" "$CRONICLE_URL"
-#printf "\n"
-#printf " 🚀  Creating VM of Cronicle-Edge Master using the above advanced settings...\n\n"
-
 printf " %s  %-15s ${C_GREEN_BOLD}%s${C_RESET}\n" "💡" "PVE Version:" "$(pveversion | cut -d' ' -f1)"
 printf " %s  %-15s ${C_GREEN_BOLD}%s${C_RESET}\n" "🖥️" "O.S.:" "Debian 13"
 printf " %s  %-15s ${C_GREEN_BOLD}%s${C_RESET}\n" "📦" "Type:" "Virtual Machine (QEMU)"
@@ -301,8 +287,12 @@ while true; do
 done
 
 # ==========================================================
-# 7. CONCLUSÃO CIRÚRGICA E PERSONALIZADA
+# 7. CONCLUSÃO
 # ==========================================================
+
+qm set "$VM_ID" --delete cicustom > /dev/null 2>&1
+rm -f "/var/lib/vz/snippets/edge-master-$VM_ID.yaml"
+
 CLEAN_URL=$(echo "$CRONICLE_URL" | sed -e 's|^[^/]*//||' -e 's|/.*$||')
 CLEAN_IP="${IPV4_STATIC%/*}"
 
