@@ -133,23 +133,23 @@ C_RESET="\e[0m"
 # 4. TELA DE RESUMO (VISUAL TTECK)
 # ==========================================================
 clear
-printf " 💡 PVE Version: ${C_GREEN_BOLD}%s${C_RESET}\n" "$(pveversion | cut -d' ' -f1)"
-printf " 🖥️  Operating System: ${C_GREEN_BOLD}Debian 13${C_RESET}\n"
-printf " 📦 Type: ${C_GREEN_BOLD}Virtual Machine (QEMU)${C_RESET}\n"
-printf " 🆔 VM ID: ${C_GREEN_BOLD}%s${C_RESET}\n" "$VM_ID"
-printf " 🏠 Hostname: ${C_GREEN_BOLD}%s${C_RESET}\n" "$VM_NAME"
-printf " 💾 Disk Size: ${C_GREEN_BOLD}%s GB${C_RESET}\n" "$DISK_SIZE"
-printf " 🧠 CPU Cores: ${C_GREEN_BOLD}%s${C_RESET}\n" "$VM_CORES"
-printf " 🛠️  RAM Size: ${C_GREEN_BOLD}%s MiB${C_RESET}\n" "$VM_MEM"
-printf " 🌉 Bridge: ${C_GREEN_BOLD}%s${C_RESET}\n" "$BRIDGE_NET"
-printf " 📡 IPv4: ${C_GREEN_BOLD}%s${C_RESET}\n" "$IP_DISP"
-printf " 📡 IPv6: ${C_GREEN_BOLD}%s${C_RESET}\n" "$DISABLE_IPV6"
-printf " 🌍 DNS Domain: ${C_GREEN_BOLD}%s${C_RESET}\n" "${DOMAIN_SRCH:-Host Default}"
-printf " 🌍 DNS Server: ${C_GREEN_BOLD}%s${C_RESET}\n" "${DNS_ADDR:-Host Default}"
-printf " 💡 Timezone: ${C_GREEN_BOLD}%s${C_RESET}\n" "${TZ_SET:-Host Default}"
-printf " 🌐 Base URL: ${C_GREEN_BOLD}%s${C_RESET}\n" "$CRONICLE_URL"
+printf " 💡   PVE Version:  ${C_GREEN_BOLD}%s${C_RESET}\n" "$(pveversion | cut -d' ' -f1)"
+printf " 🖥️  O.S.:         ${C_GREEN_BOLD}Debian 13${C_RESET}\n"
+printf " 📦  Type:         ${C_GREEN_BOLD}Virtual Machine (QEMU)${C_RESET}\n"
+printf " 🆔  VM ID:        ${C_GREEN_BOLD}%s${C_RESET}\n" "$VM_ID"
+printf " 🏠  Hostname:     ${C_GREEN_BOLD}%s${C_RESET}\n" "$VM_NAME"
+printf " 💾  Disk Size:    ${C_GREEN_BOLD}%s GB${C_RESET}\n" "$DISK_SIZE"
+printf " 🧠  CPU Cores:    ${C_GREEN_BOLD}%s${C_RESET}\n" "$VM_CORES"
+printf " 🛠️  RAM Size:     ${C_GREEN_BOLD}%s MiB${C_RESET}\n" "$VM_MEM"
+printf " 🌉  Bridge:       ${C_GREEN_BOLD}%s${C_RESET}\n" "$BRIDGE_NET"
+printf " 📡  IPv4:         ${C_GREEN_BOLD}%s${C_RESET}\n" "$IP_DISP"
+printf " 📡  IPv6:         ${C_GREEN_BOLD}%s${C_RESET}\n" "$DISABLE_IPV6"
+printf " 🌍  DNS Domain:   ${C_GREEN_BOLD}%s${C_RESET}\n" "${DOMAIN_SRCH:-Host Default}"
+printf " 🌍  DNS Server:   ${C_GREEN_BOLD}%s${C_RESET}\n" "${DNS_ADDR:-Host Default}"
+printf " 💡  Timezone:      ${C_GREEN_BOLD}%s${C_RESET}\n" "${TZ_SET:-Host Default}"
+printf " 🌐  Base URL:     ${C_GREEN_BOLD}%s${C_RESET}\n" "$CRONICLE_URL"
 printf "\n"
-printf " 🚀 Creating VM of Cronicle-Edge Master using the above advanced settings...\n\n"
+printf " 🚀  Creating VM of Cronicle-Edge Master using the above advanced settings...\n\n"
 
 # ==========================================================
 # 5. DEPLOY NO PROXMOX
@@ -247,22 +247,22 @@ qm resize "$VM_ID" scsi0 "${DISK_SIZE}G" > /dev/null 2>&1
 printf "\n ⚙️  ${C_BLUE_BOLD}Starting the Virtual Machine and validating installation...${C_RESET}\n"
 qm start "$VM_ID" > /dev/null 2>&1
 
-printf "      ⏳ Starting the VM and updating...\n"
+printf "    ⏳ Starting the VM and updating...\n"
 while ! qm agent "$VM_ID" ping >/dev/null 2>&1; do sleep 5; done
 
-printf "      ⏳ Waiting for Cloud-Init installation...\n"
+printf "    ⏳ Waiting for Cloud-Init installation...\n"
 while true; do
     CI_STATUS=$(qm guest exec "$VM_ID" -- cloud-init status 2>/dev/null)
     if echo "$CI_STATUS" | grep -q "status: done"; then
         break
     elif echo "$CI_STATUS" | grep -q "status: error"; then
-        printf "      ❌ Critical Cloud-Init failure on the VM. Check /var/log/cloud-init-output.log \n"
+        printf "    ❌ Critical Cloud-Init failure on the VM. Check /var/log/cloud-init-output.log \n"
         exit 1
     fi
     sleep 5
 done
 
-printf "      ⏳ Validating Cronicle-Edge...\n"
+printf "    ⏳ Validating Cronicle-Edge...\n"
 while true; do
     CURL_TEST=$(qm guest exec "$VM_ID" -- bash -c "ss -tulpn | grep :80" 2>/dev/null)
     if echo "$CURL_TEST" | grep -q "LISTEN"; then
@@ -278,5 +278,5 @@ CLEAN_URL=$(echo "$CRONICLE_URL" | sed -e 's|^[^/]*//||' -e 's|/.*$||')
 CLEAN_IP="${IPV4_STATIC%/*}"
 
 printf "\n${C_GREEN_BOLD}✔ Done!${C_RESET}\n"
-printf "\n🌐 Acesse: ${C_BLUE_BOLD_UNDER}%s${C_RESET}\n" "$CRONICLE_URL"
+printf "\n🌐  ${C_BLUE_BOLD_UNDER}%s${C_RESET}\n" "$CRONICLE_URL"
 printf "\n⚠️  ${C_YELLOW_BOLD}Lembre-se:${C_RESET} Aponte o DNS local de ${C_BLUE_BOLD}%s${C_RESET} para ${C_GREEN_BOLD}%s${C_RESET}.\n\n" "$CLEAN_URL" "$CLEAN_IP"
