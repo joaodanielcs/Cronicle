@@ -130,6 +130,9 @@ else
     CMD_IPV6_SYS4="# IPv6 Mantido"
 fi
 
+# Tratamento do E-mail a partir da URL
+CLEAN_DOMAIN_FOR_EMAIL=$(echo "$CRONICLE_URL" | sed -E 's|https?://||' | sed -E 's|^[^.]+.|ti@|')
+
 # Imagem Debian 13
 CRONICLE_DIR="/opt/cronicle"
 IMAGE_URL="https://cloud.debian.org/images/cloud/trixie/latest/debian-13-generic-amd64.qcow2"
@@ -242,6 +245,12 @@ write_files:
       cd /tmp/cronicle-edge
       ./bundle $CRONICLE_DIR
       cd $CRONICLE_DIR
+      jq '.global_config.base_app_url = "$CRONICLE_URL" | 
+          .global_config.custom_live_log_socket_url = "$CRONICLE_URL" | 
+          .global_config.email_from = "$CLEAN_DOMAIN_FOR_EMAIL" |
+          .global_config.ad_domain = "$DOMAIN_SRCH"' conf/setup.json > conf/setup.json.tmp
+      mv conf/setup.json.tmp conf/setup.json
+      
       if [ -f "bin/control.sh" ]; then
           ./bin/control.sh setup
       fi
