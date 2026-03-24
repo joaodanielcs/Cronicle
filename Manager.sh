@@ -23,7 +23,7 @@ NEXT_ID=$(pvesh get /cluster/nextid)
 VM_ID=$(whiptail --title "VM ID" --inputbox "Set VM ID\n(O Proxmox sugeriu o próximo ID livre automaticamente)" 10 58 "$NEXT_ID" 3>&1 1>&2 2>&3)
 if [ $? != 0 ] || [ -z "$VM_ID" ]; then exit 1; fi
 
-VM_NAME=$(whiptail --title "HOSTNAME" --inputbox "Set Hostname (ou FQDN)\nSugestão: srvCronicle-master" 10 58 "srvCronicle-master" 3>&1 1>&2 2>&3)
+VM_NAME=$(whiptail --title "HOSTNAME" --inputbox "Set Hostname (ou FQDN)\nSugestão: srvCronicle" 10 58 "srvCronicle" 3>&1 1>&2 2>&3)
 if [ $? != 0 ] || [ -z "$VM_NAME" ]; then exit 1; fi
 
 while true; do
@@ -167,7 +167,7 @@ SECRET_KEY=$(openssl rand -hex 32)
 if [ -n "${DOMAIN_SRCH:-}" ]; then
     FQDN_LINE="fqdn: ${VM_NAME}.${DOMAIN_SRCH}"
 else
-    FQDN_LINE="# fqdn omitted"
+    FQDN_LINE="fqdn: ${VM_NAME}"
 fi
 
 # ==========================================================
