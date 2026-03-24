@@ -107,6 +107,8 @@ if [ $? -eq 0 ]; then SSH_ENABLE="true"; else SSH_ENABLE="false"; fi
 # 3. PREPARAÇÃO DOS DADOS
 # ==========================================================
 
+HASH_PASS=$(openssl passwd -6 "$ROOT_PASS")
+
 # Se o usuário informar URL sem porta, força 3012 para acesso direto
 if [[ "$CRONICLE_URL" =~ ^https?://[^/:]+$ ]]; then
     CRONICLE_URL="${CRONICLE_URL}:3012"
@@ -231,6 +233,11 @@ timezone: $TZ_SET
 
 disable_root: false
 ssh_pwauth: $SSH_ENABLE
+
+chpasswd:
+  list:
+    - root:$HASH_PASS
+  expire: False
 
 packages:
   - qemu-guest-agent
