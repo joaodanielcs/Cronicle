@@ -3,7 +3,7 @@
 set -euo pipefail
 
 # ==========================================================
-# 1. VERIFICAÇÃO DE DEPENDÊNCIAS (WHIPTAIL)
+# 1. VERIFICAÇÃO DE DEPENDÊNCIAS (WHIPTAIL / JQ)
 # ==========================================================
 if ! command -v whiptail &> /dev/null; then
     apt-get update >/dev/null 2>&1
@@ -23,7 +23,7 @@ NEXT_ID=$(pvesh get /cluster/nextid)
 VM_ID=$(whiptail --title "VM ID" --inputbox "Set VM ID\n(O Proxmox sugeriu o próximo ID livre automaticamente)" 10 58 "$NEXT_ID" 3>&1 1>&2 2>&3)
 if [ $? != 0 ] || [ -z "$VM_ID" ]; then exit 1; fi
 
-VM_NAME=$(whiptail --title "HOSTNAME" --inputbox "Set Hostname (ou FQDN)\nSugestão para manager/master: srvCronicle-master" 10 58 "srvCronicle-master" 3>&1 1>&2 2>&3)
+VM_NAME=$(whiptail --title "HOSTNAME" --inputbox "Set Hostname (ou FQDN)\nSugestão: srvCronicle-master" 10 58 "srvCronicle-master" 3>&1 1>&2 2>&3)
 if [ $? != 0 ] || [ -z "$VM_NAME" ]; then exit 1; fi
 
 while true; do
@@ -56,7 +56,9 @@ if [ ${#AVAILABLE_STORAGES[@]} -eq 0 ]; then
 fi
 
 MENU_OPTIONS=()
-for st in "${AVAILABLE_STORAGES[@]}"; do MENU_OPTIONS+=("$st" "" "OFF"); done
+for st in "${AVAILABLE_STORAGES[@]}"; do
+    MENU_OPTIONS+=("$st" "" "OFF")
+done
 MENU_OPTIONS[2]="ON"
 
 STORAGE_NAME=$(whiptail --title "STORAGE POOLS" --radiolist "Which storage pool for VM disk?\n(Spacebar to select)" 15 60 5 "${MENU_OPTIONS[@]}" 3>&1 1>&2 2>&3)
@@ -74,6 +76,8 @@ IP_METHOD=$(whiptail --title "IPv4 CONFIGURATION" --menu "Select IPv4 Address As
 3>&1 1>&2 2>&3)
 if [ $? != 0 ]; then exit 1; fi
 
+IPV4_STATIC=""
+GW_ADDR=""
 if [ "$IP_METHOD" = "static" ]; then
     IPV4_STATIC=$(whiptail --title "STATIC IPv4 ADDRESS" --inputbox "Enter Static IPv4 CIDR Address\n(e.g. 192.168.0.110/24)" 10 58 "" 3>&1 1>&2 2>&3)
     if [ $? != 0 ] || [ -z "$IPV4_STATIC" ]; then exit 1; fi
@@ -88,7 +92,7 @@ if [ $? != 0 ]; then exit 1; fi
 DOMAIN_SRCH=$(whiptail --title "DNS SEARCH DOMAIN" --inputbox "Set DNS Search Domain\n(leave blank to use host setting)" 10 58 "" 3>&1 1>&2 2>&3)
 if [ $? != 0 ]; then exit 1; fi
 
-CRONICLE_URL=$(whiptail --title "CRONICLE-EDGE BASE URL" --inputbox "Set the Base URL for the Cronicle-Edge Web UI\nAcesso direto na porta padrão: http://host:3012" 10 70 "http://cronicle.local:3012" 3>&1 1>&2 2>&3)
+CRONICLE_URL=$(whiptail --title "CRONICLE-EDGE BASE URL" --inputbox "Set the Base URL for the Cronicle-Edge Web UI" 10 70 "http://cronicle.local:3012" 3>&1 1>&2 2>&3)
 if [ $? != 0 ] || [ -z "$CRONICLE_URL" ]; then exit 1; fi
 
 DISABLE_IPV6=$(whiptail --title "IPv6 CONFIGURATION" --menu "Select IPv6 Address Management:" 15 65 3 \
@@ -100,22 +104,28 @@ if [ $? != 0 ]; then exit 1; fi
 TZ_SET=$(whiptail --title "CONTAINER TIMEZONE" --inputbox "Set VM timezone.\nLeave empty to inherit from host." 10 58 "America/Sao_Paulo" 3>&1 1>&2 2>&3)
 if [ $? != 0 ]; then exit 1; fi
 
-whiptail --title "SSH ACCESS" --yesno "Enable root SSH access?" 10 58
+whiptail --title "SSH ACCESS" --yesno "Enable root SSH access?"
 if [ $? -eq 0 ]; then SSH_ENABLE="true"; else SSH_ENABLE="false"; fi
 
 # ==========================================================
 # 3. PREPARAÇÃO DOS DADOS
 # ==========================================================
 
+# Senha de root
 HASH_PASS=$(openssl passwd -6 "$ROOT_PASS")
 
-# Se o usuário informar URL sem porta, força 3012 para acesso direto
+# Garante porta padrão do cronicle-edge se a URL vier sem porta
 if [[ "$CRONICLE_URL" =~ ^https?://[^/:]+$ ]]; then
     CRONICLE_URL="${CRONICLE_URL}:3012"
 fi
 
+# Tratamento do E-mail a partir da URL
+CLEAN_DOMAIN_FOR_EMAIL=$(echo "$CRONICLE_URL" | sed -E 's|https?://||' | sed -E 's|^[^.]+.|ti@|')
+
 NET_STR="virtio,bridge=$BRIDGE_NET"
-if [ -n "${MTU_SIZE:-}" ]; then NET_STR="$NET_STR,mtu=$MTU_SIZE"; fi
+if [ -n "${MTU_SIZE:-}" ]; then
+    NET_STR="$NET_STR,mtu=$MTU_SIZE"
+fi
 
 if [ "$IP_METHOD" = "dhcp" ]; then
     IP_CONF="ip=dhcp"
@@ -148,9 +158,6 @@ else
     CMD_IPV6_SYS3="# IPv6 mantido"
     CMD_IPV6_SYS4="# IPv6 mantido"
 fi
-
-BASE_HOST=$(echo "$CRONICLE_URL" | sed -E 's|https?://||' | sed -E 's|/.*$||' | sed -E 's|:.*$||')
-ADMIN_EMAIL="admin@${DOMAIN_SRCH:-$BASE_HOST}"
 
 CRONICLE_DIR="/opt/cronicle"
 IMAGE_URL="https://cloud.debian.org/images/cloud/trixie/latest/debian-13-generic-amd64.qcow2"
@@ -188,9 +195,8 @@ printf " %s  %-15s ${C_GREEN_BOLD}%s${C_RESET}\n" "🌍" "DNS Domain:" "${DOMAIN
 printf " %s  %-15s ${C_GREEN_BOLD}%s${C_RESET}\n" "🌍" "DNS Server:" "${DNS_ADDR:-Host Default}"
 printf " %s  %-15s ${C_GREEN_BOLD}%s${C_RESET}\n" "💡" "Timezone:" "${TZ_SET:-Host Default}"
 printf " %s  %-15s ${C_GREEN_BOLD}%s${C_RESET}\n" "🌐" "Base URL:" "$CRONICLE_URL"
-printf " %s  %-15s ${C_GREEN_BOLD}%s${C_RESET}\n" "🔐" "Role:" "MANAGER (master node)"
 printf "\n"
-printf " 🚀  Creating VM of Cronicle-Edge Manager using the above settings...\n\n"
+printf " 🚀  Creating VM of Cronicle-Edge Master using the above settings...\n\n"
 
 # ==========================================================
 # 5. DEPLOY NO PROXMOX
@@ -281,7 +287,7 @@ write_files:
       CRONICLE_DIR="$CRONICLE_DIR"
       CRONICLE_URL="$CRONICLE_URL"
       DOMAIN_SRCH="$DOMAIN_SRCH"
-      ADMIN_EMAIL="$ADMIN_EMAIL"
+      CLEAN_DOMAIN_FOR_EMAIL="$CLEAN_DOMAIN_FOR_EMAIL"
       SECRET_KEY="$SECRET_KEY"
 
       rm -rf /tmp/cronicle-edge
@@ -290,36 +296,37 @@ write_files:
 
       ./bundle "\$CRONICLE_DIR"
 
-      test -x "\$CRONICLE_DIR/bin/manager"
-      test -f "\$CRONICLE_DIR/conf/config.json"
+      cd "\$CRONICLE_DIR"
 
-      # Secret key antes do primeiro setup/start
+      # secret key antes do primeiro start
       install -m 700 -d "\$CRONICLE_DIR/conf"
       printf '%s\n' "\$SECRET_KEY" > "\$CRONICLE_DIR/conf/secret_key"
       chmod 600 "\$CRONICLE_DIR/conf/secret_key"
-      printf '%s\n' "\$SECRET_KEY" > /root/cronicle-edge-secret.txt
-      chmod 600 /root/cronicle-edge-secret.txt
 
-      # Ajusta config base mantendo portas padrão do cronicle-edge
-      TMP_JSON=\$(mktemp)
+      # Injeta as variaveis diretamente no setup.json usando sed
+      sed -i "s|http://localhost:3012|\$CRONICLE_URL|g" conf/setup.json
+      sed -i "s|admin@cronicle.com|\$CLEAN_DOMAIN_FOR_EMAIL|g" conf/setup.json
+      sed -i "s|corp.cronicle.com|\$DOMAIN_SRCH|g" conf/setup.json
+
+      # Ajusta também config.json antes do primeiro start
       jq \
         --arg url "\$CRONICLE_URL" \
-        --arg email "\$ADMIN_EMAIL" \
+        --arg email "\$CLEAN_DOMAIN_FOR_EMAIL" \
         --arg domain "\$DOMAIN_SRCH" \
         '
           .base_app_url = \$url
+          | .custom_live_log_socket_url = \$url
           | .email_from = \$email
-          | (if \$domain != "" then .ad_domain = \$domain else . end)
+          | .ad_domain = \$domain
           | .WebServer.http_port = 3012
           | .WebServer.https_port = 3013
-        ' "\$CRONICLE_DIR/conf/config.json" > "\$TMP_JSON"
-      mv "\$TMP_JSON" "\$CRONICLE_DIR/conf/config.json"
+        ' conf/config.json > conf/config.json.tmp
+      mv conf/config.json.tmp conf/config.json
 
-      # Inicializa storage/setup antes do primeiro start
-      cd "\$CRONICLE_DIR"
+      # prepara storage/setup antes do start
       node "\$CRONICLE_DIR/bin/storage-cli.js" setup || true
 
-      # Serviço systemd em modo manager (equivalente ao master node no seu cenário)
+      # Serviço systemd em modo manager
       cat > /etc/systemd/system/cronicle-edge.service <<UNIT
       [Unit]
       Description=Cronicle Edge Manager
@@ -344,7 +351,6 @@ write_files:
       systemctl enable cronicle-edge
       systemctl restart cronicle-edge
 
-      # Espera a porta padrão abrir
       for i in \$(seq 1 60); do
           if ss -lntp | grep -q ':3012 '; then
               exit 0
@@ -419,7 +425,6 @@ printf "\n${C_GREEN_BOLD}✔ Done!${C_RESET}\n"
 printf "\n🌐  ${C_BLUE_BOLD_UNDER}%s${C_RESET}\n" "$CRONICLE_URL"
 printf "🧩  Cronicle-Edge role: ${C_GREEN_BOLD}MANAGER${C_RESET}\n"
 printf "🐍  Python installed: ${C_GREEN_BOLD}python3 + python3-venv${C_RESET}\n"
-printf "🔐  Secret saved in guest: ${C_GREEN_BOLD}/root/cronicle-edge-secret.txt${C_RESET}\n"
 printf "🛠️  Service name: ${C_GREEN_BOLD}cronicle-edge.service${C_RESET}\n"
 
 if [ "$IP_METHOD" = "static" ]; then
