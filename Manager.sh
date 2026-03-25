@@ -120,7 +120,7 @@ if [[ "$CRONICLE_URL" =~ ^https?://[^/:]+$ ]]; then
 fi
 
 # Tratamento do E-mail a partir da URL
-CLEAN_DOMAIN_FOR_EMAIL=$(echo "$CRONICLE_URL" | sed -E 's|https?://||' | sed -E 's|^[^.]+.|ti@|')
+CLEAN_DOMAIN_FOR_EMAIL=$(echo "$CRONICLE_URL" | sed -E 's|https?://||' | sed -E 's|/.*$||' | sed -E 's|:.*$||' | sed -E 's|^[^.]+\.|ti@|')
 
 NET_STR="virtio,bridge=$BRIDGE_NET"
 if [ -n "${MTU_SIZE:-}" ]; then
