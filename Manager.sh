@@ -119,7 +119,7 @@ if [[ "$CRONICLE_URL" =~ ^https?://[^/:]+$ ]]; then
     CRONICLE_URL="${CRONICLE_URL}:3012"
 fi
 
-# Tratamento do E-mail a partir da URL
+# Tratamento do E-mail a partir da URL (sem porta)
 CLEAN_DOMAIN_FOR_EMAIL=$(echo "$CRONICLE_URL" | sed -E 's|https?://||' | sed -E 's|/.*$||' | sed -E 's|:.*$||' | sed -E 's|^[^.]+\.|ti@|')
 
 NET_STR="virtio,bridge=$BRIDGE_NET"
@@ -307,6 +307,32 @@ write_files:
       sed -i "s|http://localhost:3012|\$CRONICLE_URL|g" conf/setup.json
       sed -i "s|admin@cronicle.com|\$CLEAN_DOMAIN_FOR_EMAIL|g" conf/setup.json
       sed -i "s|corp.cronicle.com|\$DOMAIN_SRCH|g" conf/setup.json
+
+      # Ajusta plugin padrão "Shell Script" para rodar como root antes do setup inicial
+      TMP_SETUP=\$(mktemp)
+      jq '
+        if .plugins then
+          .plugins = (
+            .plugins | map(
+              if (
+                .title == "Shell Script"
+                or .name == "Shell Script"
+                or .command == "bin/shell-plugin.js"
+                or .executable == "bin/shell-plugin.js"
+              ) then
+                .title = "Shell Script"
+                | .name = "Shell Script"
+                | .uid = "root"
+              else
+                .
+              end
+            )
+          )
+        else
+          .
+        end
+      ' conf/setup.json > "\$TMP_SETUP"
+      mv "\$TMP_SETUP" conf/setup.json
 
       # Ajusta também config.json antes do primeiro start
       jq \
