@@ -308,31 +308,27 @@ write_files:
       sed -i "s|admin@cronicle.com|\$CLEAN_DOMAIN_FOR_EMAIL|g" conf/setup.json
       sed -i "s|corp.cronicle.com|\$DOMAIN_SRCH|g" conf/setup.json
 
-      # Ajusta plugin padrão "Shell Script" para rodar como root antes do setup inicial
-      TMP_SETUP=\$(mktemp)
+      # Ajusta plugin padrão "Shell Script" para usar UID root antes do setup inicial
+      TMP_SETUP=$(mktemp)
       jq '
-        if .plugins then
-          .plugins = (
-            .plugins | map(
-              if (
-                .title == "Shell Script"
-                or .name == "Shell Script"
-                or .command == "bin/shell-plugin.js"
-                or .executable == "bin/shell-plugin.js"
-              ) then
-                .title = "Shell Script"
-                | .name = "Shell Script"
-                | .uid = "root"
-              else
-                .
-              end
+        .storage |= map(
+          if (
+            .[0] == "listPush"
+            and .[1] == "global/plugins"
+            and (
+              .[2].id == "shellplug"
+              or .[2].title == "Shell Script"
+              or .[2].command == "node bin/shell-plugin.js"
             )
-          )
-        else
-          .
-        end
-      ' conf/setup.json > "\$TMP_SETUP"
-      mv "\$TMP_SETUP" conf/setup.json
+          ) then
+            .[2].uid = "root"
+            | .[2].title = "Shell Script"
+          else
+            .
+          end
+        )
+      ' conf/setup.json > "$TMP_SETUP"
+      mv "$TMP_SETUP" conf/setup.json
 
       # Ajusta também config.json antes do primeiro start
       jq \
