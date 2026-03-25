@@ -104,7 +104,7 @@ if [ $? != 0 ]; then exit 1; fi
 TZ_SET=$(whiptail --title "CONTAINER TIMEZONE" --inputbox "Set VM timezone.\nLeave empty to inherit from host." 10 58 "America/Sao_Paulo" 3>&1 1>&2 2>&3)
 if [ $? != 0 ]; then exit 1; fi
 
-whiptail --title "SSH ACCESS" --yesno "Enable root SSH access?"
+whiptail --title "SSH ACCESS" --yesno "Enable root SSH access?" 10 58
 if [ $? -eq 0 ]; then SSH_ENABLE="true"; else SSH_ENABLE="false"; fi
 
 # ==========================================================
