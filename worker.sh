@@ -114,7 +114,7 @@ jq -r '.secret_key' "$CRONICLE_DIR/conf/config.json" || true
 
 echo
 echo "Processo:"
-pgrep -af 'cronicle|worker' || true
+pgrep -af 'cronicle' || true
 
 echo
 echo "========== PRÓXIMO PASSO =========="
