@@ -309,7 +309,7 @@ write_files:
       sed -i "s|corp.cronicle.com|\$DOMAIN_SRCH|g" conf/setup.json
 
       # Ajusta plugin padrão "Shell Script" para usar UID root antes do setup inicial
-      TMP_SETUP=$(mktemp)
+      TMP_SETUP=\$(mktemp)
       jq '
         .storage |= map(
           if (
@@ -327,8 +327,8 @@ write_files:
             .
           end
         )
-      ' conf/setup.json > "$TMP_SETUP"
-      mv "$TMP_SETUP" conf/setup.json
+      ' conf/setup.json > "\$TMP_SETUP"
+      mv "\$TMP_SETUP" conf/setup.json
 
       # Ajusta também config.json antes do primeiro start
       jq \
