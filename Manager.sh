@@ -339,11 +339,13 @@ write_files:
         --arg url "\$CRONICLE_URL" \
         --arg email "\$CLEAN_DOMAIN_FOR_EMAIL" \
         --arg domain "\$DOMAIN_SRCH" \
+        --arg secret "\$SECRET_KEY" \
         '
           .base_app_url = \$url
           | .custom_live_log_socket_url = \$url
           | .email_from = \$email
           | .ad_domain = \$domain
+          | .secret_key = \$secret
           | .WebServer.http_port = 3012
           | .WebServer.https_port = 3013
         ' conf/config.json > conf/config.json.tmp
