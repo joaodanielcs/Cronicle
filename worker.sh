@@ -31,8 +31,7 @@ apt-get install -y \
     procps \
     build-essential \
     openssl \
-    nodejs \
-    npm
+    nodejs
 
 # ==========================================================
 # 2. INSTALAÇÃO DO CRONICLE-EDGE
