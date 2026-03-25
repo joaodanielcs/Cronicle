@@ -1,59 +1,124 @@
 #!/usr/bin/env bash
 
-# ==========================================================
-# 1. VALIDAÇÃO DE PARÂMETROS
-# ==========================================================
-if [ -z "$1" ] || [ -z "$2" ]; then
-    echo -e "\e[1;31mErro: Parâmetros ausentes.\e[0m"
-    echo -e "Uso correto: $0 <MANAGER_URL> <SECRET_KEY>"
+set -euo pipefail
+
+# Uso:
+#   bash agente.sh <MANAGER_IP_OU_HOST> <SECRET_KEY>
+
+MANAGER_HOST="${1:-}"
+SECRET_KEY="${2:-}"
+
+if [ -z "$MANAGER_HOST" ] || [ -z "$SECRET_KEY" ]; then
     exit 1
 fi
 
-MANAGER_URL="$1"
-SECRET_KEY="$2"
-
-echo -e "\e[1;34m==> Iniciando instalação do Cronicle-Edge Worker...\e[0m"
+CRONICLE_DIR="/opt/cronicle"
+CRONICLE_REPO="https://github.com/cronicle-edge/cronicle-edge.git"
+MANAGER_URL="http://${MANAGER_HOST}:3012"
 
 # ==========================================================
-# 2. INSTALAÇÃO DE DEPENDÊNCIAS
+# 1. DEPENDÊNCIAS
 # ==========================================================
-echo -e "\e[1;33m==> Instalando dependências do SO (git, nodejs, npm, build-essential)...\e[0m"
 export DEBIAN_FRONTEND=noninteractive
-apt-get update -y > /dev/null 2>&1
-apt-get install -y git curl nodejs npm build-essential jq > /dev/null 2>&1
+
+apt-get update
+apt-get install -y \
+    ca-certificates \
+    curl \
+    wget \
+    git \
+    jq \
+    procps \
+    build-essential \
+    openssl \
+    nodejs \
+    npm
 
 # ==========================================================
-# 3. LIMPEZA DE INSTALAÇÕES ANTERIORES
+# 2. INSTALAÇÃO DO CRONICLE-EDGE
 # ==========================================================
-echo -e "\e[1;33m==> Parando serviços e limpando lixo de instalações antigas...\e[0m"
-if [ -f "/opt/cronicle/bin/control.sh" ]; then
-    /opt/cronicle/bin/control.sh stop > /dev/null 2>&1
-    sleep 3
-fi
-rm -rf /opt/cronicle /tmp/cronicle-edge
-
-# ==========================================================
-# 4. DOWNLOAD E COMPILAÇÃO (BUNDLE)
-# ==========================================================
-echo -e "\e[1;33m==> Baixando e empacotando o Cronicle-Edge...\e[0m"
-git clone https://github.com/cronicle-edge/cronicle-edge.git /tmp/cronicle-edge > /dev/null 2>&1
+rm -rf /tmp/cronicle-edge
+git clone --depth 1 "$CRONICLE_REPO" /tmp/cronicle-edge
 cd /tmp/cronicle-edge
-./bundle /opt/cronicle > /dev/null 2>&1
+
+./bundle "$CRONICLE_DIR"
+
+cd "$CRONICLE_DIR"
 
 # ==========================================================
-# 5. SETUP E INICIALIZAÇÃO
+# 3. SECRET KEY
 # ==========================================================
-echo -e "\e[1;33m==> Conectando ao Master ($MANAGER_URL)...\e[0m"
-cd /opt/cronicle
-./bin/control.sh setup --manager "$MANAGER_URL" --secret "$SECRET_KEY" > /dev/null 2>&1
+install -m 700 -d "$CRONICLE_DIR/conf"
+printf '%s\n' "$SECRET_KEY" > "$CRONICLE_DIR/conf/secret_key"
+chmod 600 "$CRONICLE_DIR/conf/secret_key"
 
-echo -e "\e[1;33m==> Iniciando o motor do Worker...\e[0m"
-./bin/control.sh start
+# ==========================================================
+# 4. AJUSTES DE CONFIGURAÇÃO
+# ==========================================================
+# Mantém a secret_key coerente também no config.json
+TMP_JSON="$(mktemp)"
+jq \
+  --arg secret "$SECRET_KEY" \
+  '
+    .secret_key = $secret
+  ' conf/config.json > "$TMP_JSON"
+mv "$TMP_JSON" conf/config.json
 
-# Garantir que suba junto com o boot do servidor
-if ! grep -q "/opt/cronicle/bin/control.sh start" /etc/rc.local 2>/dev/null; then
-    echo "/opt/cronicle/bin/control.sh start" >> /etc/rc.local
-    chmod +x /etc/rc.local 2>/dev/null
-fi
+# Setup inicial do storage/config do cronicle-edge
+node "$CRONICLE_DIR/bin/storage-cli.js" setup || true
 
-echo -e "\e[1;32m✔ Instalação concluída com sucesso! Verifique a aba 'Servers' no Master.\e[0m"
+# ==========================================================
+# 5. SERVIÇO SYSTEMD - WORKER
+# ==========================================================
+cat > /etc/systemd/system/cronicle-edge-worker.service <<UNIT
+[Unit]
+Description=Cronicle Edge Worker
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=$CRONICLE_DIR
+ExecStart=$CRONICLE_DIR/bin/worker
+Restart=always
+RestartSec=5
+User=root
+Environment=HOME=/root
+Environment=CRONICLE_secret_key=$SECRET_KEY
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+
+systemctl daemon-reload
+systemctl enable cronicle-edge-worker
+systemctl restart cronicle-edge-worker
+
+# ==========================================================
+# 6. VALIDAÇÃO
+# ==========================================================
+sleep 5
+
+echo
+echo "========== VALIDAÇÃO =========="
+echo "Serviço:"
+systemctl --no-pager --full status cronicle-edge-worker || true
+
+echo
+echo "Secret key em arquivo:"
+cat "$CRONICLE_DIR/conf/secret_key" || true
+
+echo
+echo "Secret key no config.json:"
+jq -r '.secret_key' "$CRONICLE_DIR/conf/config.json" || true
+
+echo
+echo "Processo:"
+pgrep -af 'cronicle|worker' || true
+
+echo
+echo "========== PRÓXIMO PASSO =========="
+echo "Manager: $MANAGER_URL"
+echo "Adicione este worker no manager em: Admin / Servers"
+echo "=================================="
