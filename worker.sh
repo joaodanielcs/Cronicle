@@ -29,6 +29,7 @@ apt-get install -y \
 
 rm -rf /tmp/cronicle-edge
 git clone --depth 1 "$CRONICLE_REPO" /tmp/cronicle-edge
+apt-get update && apt-get install -y npm
 cd /tmp/cronicle-edge
 
 ./bundle "$CRONICLE_DIR"
